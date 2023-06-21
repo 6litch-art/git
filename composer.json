@@ -1,5 +1,5 @@
 {
-    "name": "git/git-bundle",
+    "name": "glitchr/git-bundle",
     "type": "symfony-bundle",
     "description": "",
     "keywords": ["symfony"],
