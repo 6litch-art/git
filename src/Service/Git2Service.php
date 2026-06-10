@@ -50,15 +50,16 @@ class Git2Service
         // Try as arbitrary revspec — handles branch names, tag names, short SHAs, HEAD, etc.
         $obj = @git_revparse_single($repo, $ref);
         if ($obj) {
-            $oid = git_object_id($obj);
-            // Dereference tags to commits
+            // Dereference annotated tags to the target commit
             if (git_object_type($obj) === GIT_OBJ_TAG) {
-                $peeled = git_object_peel($obj, GIT_OBJ_COMMIT);
-                if ($peeled) {
+                try {
+                    $peeled = git_object_peel($obj, GIT_OBJ_COMMIT);
                     return git_object_id($peeled);
+                } catch (\Throwable) {
+                    // fall through and return tag OID
                 }
             }
-            return $oid;
+            return git_object_id($obj);
         }
 
         throw new NotFoundHttpException("Ref '$ref' not found in repository '$repoName'.");
@@ -267,9 +268,18 @@ class Git2Service
             $obj = @git_revparse_single($repo, $name);
             if (!$obj) continue;
 
-            // Dereference annotated tags to get the commit SHA
-            $targetObj = git_object_peel($obj, GIT_OBJ_COMMIT);
-            $sha = $targetObj ? git_object_id($targetObj) : git_object_id($obj);
+            // For annotated tags (GIT_OBJ_TAG), peel to the target commit.
+            // For lightweight tags (already a commit), use the OID directly.
+            if (git_object_type($obj) === GIT_OBJ_TAG) {
+                try {
+                    $targetObj = git_object_peel($obj, GIT_OBJ_COMMIT);
+                    $sha = git_object_id($targetObj);
+                } catch (\Throwable) {
+                    $sha = git_object_id($obj);
+                }
+            } else {
+                $sha = git_object_id($obj);
+            }
 
             $tags[$name] = [
                 'name' => $name,
