@@ -1,0 +1,59 @@
+{% extends '@Git/layout.html.twig' %}
+
+{% block title %}{{ config.label ?? repo }}{% if path %} / {{ path }}{% endif %}{% endblock %}
+
+{% block body %}
+{{ include('@Git/_repo_nav.html.twig') }}
+
+<div class="breadcrumb">
+    <a href="{{ path('git_tree', {repo: repo, ref: ref, path: ''}) }}">{{ config.label ?? repo }}</a>
+    {% for crumb in breadcrumbs %}
+        <span class="sep">/</span>
+        <a href="{{ path('git_tree', {repo: repo, ref: ref, path: crumb.path}) }}">{{ crumb.name }}</a>
+    {% endfor %}
+</div>
+
+{% if entries is empty %}
+    <div class="alert alert-info">This directory is empty.</div>
+{% else %}
+    <table class="file-table">
+        <thead>
+            <tr>
+                <th class="icon"></th>
+                <th class="name">Name</th>
+                <th class="commit-msg">Last commit</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if path != '' %}
+            <tr>
+                <td class="icon" style="color:#57606a">&#x1F4C2;</td>
+                <td colspan="2">
+                    {% set parentPath = path|split('/')|slice(0, -1)|join('/') %}
+                    <a href="{{ path('git_tree', {repo: repo, ref: ref, path: parentPath}) }}">..</a>
+                </td>
+            </tr>
+            {% endif %}
+            {% for entry in entries %}
+            <tr>
+                <td class="icon">
+                    {% if entry.isTree() %}&#x1F4C2;{% else %}&#x1F4C4;{% endif %}
+                </td>
+                <td class="name">
+                    {% if entry.isTree() %}
+                        <a href="{{ path('git_tree', {repo: repo, ref: ref, path: (path ? path ~ '/' : '') ~ entry.name}) }}">{{ entry.name }}</a>
+                    {% else %}
+                        <a href="{{ path('git_blob', {repo: repo, ref: ref, path: (path ? path ~ '/' : '') ~ entry.name}) }}">{{ entry.name }}</a>
+                    {% endif %}
+                </td>
+                <td class="commit-msg">
+                    {% if entry.lastCommit %}
+                        <a href="{{ path('git_commit', {repo: repo, sha: entry.lastCommit.sha}) }}">{{ entry.lastCommit.subject }}</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+{% endblock %}

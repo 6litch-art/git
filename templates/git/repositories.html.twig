@@ -1,0 +1,23 @@
+{% extends '@Git/layout.html.twig' %}
+
+{% block title %}Repositories{% endblock %}
+
+{% block body %}
+<h1 style="font-size:24px; margin-bottom:20px;">Repositories</h1>
+
+{% if repos is empty %}
+    <div class="alert alert-info">No repositories configured. Add entries under <code>git.repositories</code> in your config.</div>
+{% else %}
+    <div class="repo-grid">
+        {% for name, repo in repos %}
+        <div class="repo-card">
+            <h3><a href="{{ path('git_repo_default', {repo: name}) }}">{{ repo.label ?? name }}</a></h3>
+            {% if repo.description %}
+                <p>{{ repo.description }}</p>
+            {% endif %}
+            <p style="margin-top:8px; font-size:12px; color:#57606a;">{{ repo.path }}</p>
+        </div>
+        {% endfor %}
+    </div>
+{% endif %}
+{% endblock %}

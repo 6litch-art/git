@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Git{% endblock %}</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 14px; color: #24292f; background: #fff; line-height: 1.5; }
+        a { color: #0969da; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        code, pre { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 12px; }
+
+        .git-nav { background: #24292f; padding: 0 16px; display: flex; align-items: center; height: 48px; gap: 16px; }
+        .git-nav a { color: #fff; font-weight: 600; font-size: 15px; }
+        .git-nav .sep { color: #8b949e; }
+
+        .git-container { max-width: 1280px; margin: 0 auto; padding: 24px 16px; }
+
+        .repo-header { border-bottom: 1px solid #d0d7de; padding-bottom: 16px; margin-bottom: 16px; }
+        .repo-header h1 { font-size: 20px; display: flex; align-items: center; gap: 8px; }
+        .repo-header .repo-desc { color: #57606a; margin-top: 4px; }
+
+        .tab-nav { display: flex; gap: 0; border-bottom: 1px solid #d0d7de; margin-bottom: 16px; }
+        .tab-nav a { padding: 8px 16px; color: #57606a; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+        .tab-nav a:hover { color: #24292f; text-decoration: none; background: #f6f8fa; border-radius: 4px 4px 0 0; }
+        .tab-nav a.active { color: #24292f; font-weight: 600; border-bottom-color: #fd8c73; }
+
+        .breadcrumb { font-size: 16px; margin-bottom: 12px; }
+        .breadcrumb a { color: #0969da; }
+        .breadcrumb .sep { color: #57606a; margin: 0 4px; }
+
+        .file-table { width: 100%; border: 1px solid #d0d7de; border-radius: 6px; border-collapse: collapse; overflow: hidden; }
+        .file-table thead th { background: #f6f8fa; padding: 8px 12px; text-align: left; border-bottom: 1px solid #d0d7de; color: #57606a; font-weight: 400; }
+        .file-table tbody tr { border-top: 1px solid #d0d7de; }
+        .file-table tbody tr:first-child { border-top: none; }
+        .file-table tbody tr:hover { background: #f6f8fa; }
+        .file-table td { padding: 8px 12px; }
+        .file-table .icon { width: 20px; color: #57606a; }
+        .file-table .name { min-width: 200px; }
+        .file-table .commit-msg { color: #57606a; max-width: 500px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .file-table .age { color: #57606a; text-align: right; white-space: nowrap; }
+
+        .commit-list { border: 1px solid #d0d7de; border-radius: 6px; overflow: hidden; }
+        .commit-item { padding: 12px 16px; border-bottom: 1px solid #d0d7de; display: flex; justify-content: space-between; align-items: flex-start; }
+        .commit-item:last-child { border-bottom: none; }
+        .commit-item:hover { background: #f6f8fa; }
+        .commit-subject { font-weight: 600; margin-bottom: 2px; }
+        .commit-meta { color: #57606a; font-size: 12px; }
+        .commit-sha a { font-family: monospace; font-size: 12px; color: #57606a; background: #f6f8fa; padding: 2px 6px; border-radius: 3px; border: 1px solid #d0d7de; }
+        .commit-sha a:hover { color: #0969da; text-decoration: none; background: #e8f0fe; }
+
+        .diff-container { margin-top: 16px; }
+        .diff-file { border: 1px solid #d0d7de; border-radius: 6px; margin-bottom: 16px; overflow: hidden; }
+        .diff-file-header { background: #f6f8fa; padding: 8px 12px; border-bottom: 1px solid #d0d7de; font-family: monospace; font-size: 12px; color: #57606a; }
+        .diff-body { overflow-x: auto; }
+        .diff-line { display: flex; font-family: monospace; font-size: 12px; line-height: 1.4; }
+        .diff-line-num { width: 48px; min-width: 48px; padding: 0 8px; text-align: right; color: #8b949e; background: #f6f8fa; border-right: 1px solid #d0d7de; user-select: none; }
+        .diff-line-content { padding: 0 8px; white-space: pre; flex: 1; }
+        .diff-line.add { background: #e6ffec; }
+        .diff-line.add .diff-line-num { background: #ccffd8; }
+        .diff-line.del { background: #ffebe9; }
+        .diff-line.del .diff-line-num { background: #ffd7d5; }
+        .diff-line.hunk { background: #e8f0fe; color: #57606a; }
+        .diff-line.hunk .diff-line-num { background: #dbe4ff; }
+
+        .blob-container { border: 1px solid #d0d7de; border-radius: 6px; overflow: hidden; }
+        .blob-header { background: #f6f8fa; padding: 8px 12px; border-bottom: 1px solid #d0d7de; display: flex; justify-content: space-between; align-items: center; }
+        .blob-body { overflow-x: auto; }
+        .line-table { border-collapse: collapse; width: 100%; }
+        .line-table td { padding: 0; }
+        .line-num { width: 48px; text-align: right; padding: 0 12px; color: #8b949e; font-size: 12px; user-select: none; border-right: 1px solid #d0d7de; background: #f6f8fa; vertical-align: top; }
+        .line-code { padding: 0 12px; font-size: 12px; white-space: pre; }
+
+        .commit-header { border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; margin-bottom: 16px; }
+        .commit-header h2 { font-size: 18px; margin-bottom: 8px; }
+        .commit-body { color: #57606a; white-space: pre-wrap; margin: 8px 0; }
+        .commit-stats { display: flex; gap: 16px; margin-top: 8px; }
+        .commit-stat { font-size: 12px; color: #57606a; }
+        .commit-stat .add { color: #1a7f37; }
+        .commit-stat .del { color: #cf222e; }
+
+        .tag-badge { background: #ddf4ff; color: #0969da; border: 1px solid #cce5ff; border-radius: 12px; padding: 1px 8px; font-size: 12px; }
+        .branch-badge { background: #f6f8fa; color: #57606a; border: 1px solid #d0d7de; border-radius: 12px; padding: 1px 8px; font-size: 12px; }
+        .head-badge { background: #dafbe1; color: #1a7f37; border: 1px solid #aceebb; border-radius: 12px; padding: 1px 8px; font-size: 12px; font-weight: 600; }
+
+        .ref-list { border: 1px solid #d0d7de; border-radius: 6px; overflow: hidden; }
+        .ref-item { padding: 12px 16px; border-bottom: 1px solid #d0d7de; display: flex; justify-content: space-between; align-items: center; }
+        .ref-item:last-child { border-bottom: none; }
+        .ref-item:hover { background: #f6f8fa; }
+
+        .repo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+        .repo-card { border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+        .repo-card h3 { font-size: 16px; margin-bottom: 4px; }
+        .repo-card p { color: #57606a; font-size: 13px; }
+
+        .pagination { display: flex; gap: 8px; margin-top: 16px; justify-content: center; }
+        .pagination a { padding: 6px 12px; border: 1px solid #d0d7de; border-radius: 6px; color: #0969da; }
+        .pagination span { padding: 6px 12px; color: #57606a; }
+
+        .alert { padding: 12px 16px; border-radius: 6px; margin-bottom: 16px; }
+        .alert-info { background: #ddf4ff; color: #0969da; border: 1px solid #b6e3ff; }
+    </style>
+    {% block head %}{% endblock %}
+</head>
+<body>
+
+<nav class="git-nav">
+    <a href="{{ path('git_repositories') }}">&#x2666; Git</a>
+    {% block nav_extra %}{% endblock %}
+</nav>
+
+<div class="git-container">
+    {% block body %}{% endblock %}
+</div>
+
+</body>
+</html>

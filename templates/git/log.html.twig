@@ -1,0 +1,44 @@
+{% extends '@Git/layout.html.twig' %}
+
+{% block title %}Commits — {{ config.label ?? repo }}{% endblock %}
+
+{% block body %}
+{{ include('@Git/_repo_nav.html.twig') }}
+
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <h2 style="font-size:16px;">Commits on <strong>{{ ref }}</strong></h2>
+</div>
+
+{% if commits is empty %}
+    <div class="alert alert-info">No commits found.</div>
+{% else %}
+    <div class="commit-list">
+        {% for commit in commits %}
+        <div class="commit-item">
+            <div>
+                <div class="commit-subject">
+                    <a href="{{ path('git_commit', {repo: repo, sha: commit.sha}) }}">{{ commit.subject }}</a>
+                </div>
+                <div class="commit-meta">
+                    <strong>{{ commit.authorName }}</strong>
+                    committed {{ commit.authorDate|date('Y-m-d H:i') }}
+                </div>
+            </div>
+            <div class="commit-sha">
+                <a href="{{ path('git_commit', {repo: repo, sha: commit.sha}) }}" title="{{ commit.sha }}">{{ commit.shortSha }}</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="pagination">
+        {% if page > 1 %}
+            <a href="{{ path('git_log', {repo: repo, ref: ref, page: page - 1}) }}">&laquo; Newer</a>
+        {% endif %}
+        <span>Page {{ page }}</span>
+        {% if has_more %}
+            <a href="{{ path('git_log', {repo: repo, ref: ref, page: page + 1}) }}">Older &raquo;</a>
+        {% endif %}
+    </div>
+{% endif %}
+{% endblock %}

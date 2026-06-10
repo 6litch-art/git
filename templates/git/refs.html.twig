@@ -1,0 +1,54 @@
+{% extends '@Git/layout.html.twig' %}
+
+{% block title %}{{ active == 'branches' ? 'Branches' : 'Tags' }} — {{ config.label ?? repo }}{% endblock %}
+
+{% block body %}
+{{ include('@Git/_repo_nav.html.twig') }}
+
+<div class="tab-nav" style="margin-bottom:16px;">
+    <a href="{{ path('git_branches', {repo: repo}) }}" class="{{ active == 'branches' ? 'active' : '' }}">Branches</a>
+    <a href="{{ path('git_tags', {repo: repo}) }}" class="{{ active == 'tags' ? 'active' : '' }}">Tags</a>
+</div>
+
+{% if active == 'branches' %}
+    {% if branches is empty %}
+        <div class="alert alert-info">No branches found.</div>
+    {% else %}
+        <div class="ref-list">
+            {% for name, branch in branches %}
+            <div class="ref-item">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    {% if branch.is_head %}
+                        <span class="head-badge">HEAD</span>
+                    {% endif %}
+                    <a href="{{ path('git_tree', {repo: repo, ref: name, path: ''}) }}">{{ name }}</a>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <a href="{{ path('git_log', {repo: repo, ref: name}) }}" style="font-size:12px; color:#57606a;">History</a>
+                    <span class="branch-badge" style="font-family:monospace;">{{ branch.sha|slice(0,8) }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% else %}
+    {% if tags is empty %}
+        <div class="alert alert-info">No tags found.</div>
+    {% else %}
+        <div class="ref-list">
+            {% for name, tag in tags %}
+            <div class="ref-item">
+                <div>
+                    <span class="tag-badge">tag</span>
+                    <a href="{{ path('git_tree', {repo: repo, ref: name, path: ''}) }}" style="margin-left:8px;">{{ name }}</a>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <a href="{{ path('git_log', {repo: repo, ref: name}) }}" style="font-size:12px; color:#57606a;">History</a>
+                    <span class="branch-badge" style="font-family:monospace;">{{ tag.sha|slice(0,8) }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endif %}
+{% endblock %}
