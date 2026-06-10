@@ -2,6 +2,7 @@
 
 use Git\Controller\RepositoryController;
 use Git\Service\Git2Service;
+use Git\Warmer\RepositoryWarmer;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\DependencyInjection\Reference;
 
@@ -16,6 +17,10 @@ return static function (ContainerConfigurator $container): void {
         ->public();
 
     $services->alias(Git2Service::class, 'git.service.git2');
+
+    $services->set('git.warmer.repository', RepositoryWarmer::class)
+        ->args(['%git.repositories%'])
+        ->tag('kernel.cache_warmer');
 
     $services->set('git.controller.repository', RepositoryController::class)
         ->args([
