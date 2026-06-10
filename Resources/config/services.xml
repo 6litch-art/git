@@ -5,7 +5,17 @@
            xsi:schemaLocation="http://symfony.com/schema/dic/services http://symfony.com/schema/dic/services/services-1.0.xsd">
     <services>
 
-        <defaults public="false" />
+        <defaults public="false" autowire="true" autoconfigure="true" />
+
+        <service id="git.service.git2" class="Git\Service\Git2Service" public="true">
+            <argument>%git.repositories%</argument>
+        </service>
+
+        <alias id="Git\Service\Git2Service" service="git.service.git2" />
+
+        <service id="git.controller.repository" class="Git\Controller\RepositoryController" public="true">
+            <tag name="controller.service_arguments" />
+        </service>
 
     </services>
 </container>

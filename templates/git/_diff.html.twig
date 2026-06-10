@@ -1,0 +1,33 @@
+{#
+  Renders a unified diff (raw patch text) as a side-scrollable HTML diff view.
+  Variable: raw_diff (string)
+#}
+{% set lines = raw_diff|split("\n") %}
+{% set current_file = null %}
+{% set in_file = false %}
+{% set old_line = 0 %}
+{% set new_line = 0 %}
+
+<div class="diff-container">
+{% for line in lines %}
+    {%- if line starts with 'diff --git' -%}
+        {%- if in_file %}</div></div>{% endif %}
+        {%- set current_file = line|replace({'diff --git ': ''})|split(' b/')|last -%}
+        {%- set in_file = true -%}
+        <div class="diff-file">
+        <div class="diff-file-header">{{ current_file }}</div>
+        <div class="diff-body">
+    {%- elseif line starts with '@@' -%}
+        <div class="diff-line hunk"><span class="diff-line-num"></span><span class="diff-line-content">{{ line }}</span></div>
+    {%- elseif line starts with '+++' or line starts with '---' or line starts with 'index ' or line starts with 'new file' or line starts with 'deleted file' or line starts with 'old mode' or line starts with 'new mode' or line starts with 'Binary' -%}
+        {# skip header lines #}
+    {%- elseif line starts with '+' -%}
+        <div class="diff-line add"><span class="diff-line-num"></span><span class="diff-line-content">{{ line|e }}</span></div>
+    {%- elseif line starts with '-' -%}
+        <div class="diff-line del"><span class="diff-line-num"></span><span class="diff-line-content">{{ line|e }}</span></div>
+    {%- elseif line != '' and in_file -%}
+        <div class="diff-line"><span class="diff-line-num"></span><span class="diff-line-content">{{ line|e }}</span></div>
+    {%- endif %}
+{% endfor %}
+{% if in_file %}</div></div>{% endif %}
+</div>

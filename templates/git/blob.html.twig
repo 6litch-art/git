@@ -1,0 +1,45 @@
+{% extends '@Git/layout.html.twig' %}
+
+{% block title %}{{ filename }} — {{ config.label ?? repo }}{% endblock %}
+
+{% block body %}
+{{ include('@Git/_repo_nav.html.twig') }}
+
+<div class="breadcrumb">
+    <a href="{{ path('git_tree', {repo: repo, ref: ref, path: ''}) }}">{{ config.label ?? repo }}</a>
+    {% for crumb in breadcrumbs %}
+        <span class="sep">/</span>
+        {% if not loop.last %}
+            <a href="{{ path('git_tree', {repo: repo, ref: ref, path: crumb.path}) }}">{{ crumb.name }}</a>
+        {% else %}
+            <strong>{{ crumb.name }}</strong>
+        {% endif %}
+    {% endfor %}
+</div>
+
+<div class="blob-container">
+    <div class="blob-header">
+        <span>{{ filename }}</span>
+        <span style="color:#57606a; font-size:12px;">{{ blob.size|number_format }} bytes &bull; {{ blob.sha|slice(0,8) }}</span>
+    </div>
+
+    {% if blob.is_binary %}
+        <div class="alert alert-info" style="margin:16px; border-radius:4px;">Binary file not shown.</div>
+    {% else %}
+        <div class="blob-body">
+            <table class="line-table">
+                <tbody>
+                {% for i, line in blob.content|split("\n") %}
+                    {% if not (loop.last and line == '') %}
+                    <tr>
+                        <td class="line-num">{{ i + 1 }}</td>
+                        <td class="line-code">{{ line }}</td>
+                    </tr>
+                    {% endif %}
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
