@@ -105,6 +105,8 @@ class Git2Service
      */
     public function getCommit(string $repoName, string $sha): CommitInfo
     {
+        // git_commit_lookup zero-pads abbreviated ids; resolve them first.
+        $sha  = $this->resolveRef($repoName, $sha);
         $repo = $this->openRepo($repoName);
         $info = $this->commitInfoFromSha($repo, $sha);
 

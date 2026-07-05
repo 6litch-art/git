@@ -66,10 +66,12 @@ git:
             default_branch: HEAD
 EOF
 
-COPY <<'EOF' config/routes/git.yaml
-git:
-    resource: '@GitBundle/Resources/config/routes.php'
-EOF
+# (No route import needed: Symfony 8 auto-registers the controller's
+#  attribute routes, already prefixed via git.route_prefix.)
+
+# composer's recipe scripts compiled the container BEFORE the config files
+# above were copied — drop that stale cache so first warmup starts clean.
+RUN rm -rf var/cache
 
 EXPOSE 8000
 

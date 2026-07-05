@@ -9,6 +9,11 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 
+// The class-level prefix makes every registration path (Symfony 8's automatic
+// controller-service attribute routes, or an explicit routes.php import on
+// 6.x/7.x) produce identical, correctly-prefixed routes — import order stops
+// mattering. The container parameter is resolved by the Router at runtime.
+#[Route('%git.route_prefix%')]
 class RepositoryController extends AbstractController
 {
     public function __construct(

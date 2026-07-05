@@ -79,14 +79,16 @@ git:
             default_branch: HEAD
 ```
 
-`config/routes/git.yaml`:
+Routing: on Symfony ≥ 7.3 the controller's attribute routes are registered
+automatically (the URL prefix comes from `git.route_prefix` via a class-level
+`#[Route]`). On older versions import them once in `config/routes/git.yaml`:
 
 ```yaml
 git:
     resource: '@GitBundle/Resources/config/routes.php'
 ```
 
-(or import the controller directly with `type: attribute` and your own prefix.)
+Do **not** add an import `prefix:` — the routes are already prefixed.
 
 ## Routes
 
