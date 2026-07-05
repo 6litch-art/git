@@ -25,6 +25,7 @@ class Configuration implements ConfigurationInterface
                 ->arrayNode('repositories')
                     ->info('Named repositories to expose')
                     ->useAttributeAsKey('name')
+                    ->normalizeKeys(false)
                     ->arrayPrototype()
                         ->children()
                             ->scalarNode('path')

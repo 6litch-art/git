@@ -22,11 +22,16 @@ return static function (ContainerConfigurator $container): void {
         ->args(['%git.repositories%'])
         ->tag('kernel.cache_warmer');
 
-    $services->set('git.controller.repository', RepositoryController::class)
+    // Registered under the FQCN: attribute-imported routes reference the
+    // controller by class name. Keep the short id as a BC alias.
+    $services->set(RepositoryController::class)
         ->args([
             new Reference('git.service.git2'),
             '%git.access_role%',
         ])
         ->public()
         ->tag('controller.service_arguments');
+
+    $services->alias('git.controller.repository', RepositoryController::class)
+        ->public();
 };
