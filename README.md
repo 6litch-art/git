@@ -83,7 +83,7 @@ git:
 
 ```yaml
 git:
-    resource: '@GitBundle/Resources/config/routes.xml'
+    resource: '@GitBundle/Resources/config/routes.php'
 ```
 
 (or import the controller directly with `type: attribute` and your own prefix.)
