@@ -46,9 +46,8 @@ RUN composer create-project symfony/skeleton . --no-interaction --no-progress \
     && composer config repositories.git-bundle '{"type": "path", "url": "/srv/git-bundle", "options": {"symlink": false}}' \
     && composer require "git/git-bundle:*@dev" --no-interaction --no-progress
 
-# --- wiring: enable the bundle, declare repositories, import the routes -----
-RUN sed -i "s#^];#    Git\\\\GitBundle::class => ['all' => true],\n];#" config/bundles.php
-
+# --- wiring: declare repositories and import the routes ---------------------
+# (Flex auto-registers the bundle in config/bundles.php on composer require.)
 COPY <<'EOF' config/packages/git.yaml
 git:
     route_prefix: /git
@@ -69,7 +68,7 @@ EOF
 
 COPY <<'EOF' config/routes/git.yaml
 git:
-    resource: '@GitBundle/Resources/config/routes.xml'
+    resource: '@GitBundle/Resources/config/routes.php'
 EOF
 
 EXPOSE 8000
