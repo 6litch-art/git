@@ -2,6 +2,7 @@
 
 namespace Git\DependencyInjection;
 
+use Git\Repository\RepositoryProviderInterface;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\Extension;
@@ -19,6 +20,10 @@ class GitExtension extends Extension
 
         $container->setParameter('git.route_prefix', $config['route_prefix']);
         $container->setParameter('git.access_role', $config['access_role']);
+        $container->setParameter('git.repository_attribute', $config['repository_attribute']);
+
+        $container->registerForAutoconfiguration(RepositoryProviderInterface::class)
+            ->addTag('git.repository_provider');
         $container->setParameter('git.repositories', $config['repositories']);
     }
 }

@@ -102,6 +102,63 @@ Do **not** add an import `prefix:` — the routes are already prefixed.
 | `/git/{repo}/commit/{sha}` | commit details + diff |
 | `/git/{repo}/branches`, `/git/{repo}/tags` | refs |
 
+## Repositories from your application
+
+Beyond `git.repositories`, any service implementing
+`Git\Repository\RepositoryProviderInterface` adds repositories. The interface
+is autoconfigured with the `git.repository_provider` tag. A typical provider
+returns the repositories of an application's own entities: its clients'
+projects, the software it publishes. Each entry has the same shape as a
+configured one:
+
+```php
+final class ProjectRepositories implements RepositoryProviderInterface
+{
+    public function getRepositories(): array
+    {
+        return ['acme-shop' => ['path' => '/srv/repos/acme-shop.git', 'url' => 'git@…', 'label' => 'Acme shop']];
+    }
+}
+```
+
+When a name exists in both, the configured repository wins. Providers are
+queried lazily, once per request. The warmer tolerates a provider that fails
+(no database while an image builds).
+
+`bin/console git:sync [name…]` clones or fetches the repositories that have a
+`url`, which is what the warmer does, but on demand. It is worth a cron line
+when repositories come from a provider.
+
+## One repository at a time
+
+`access_role` lets a user into the viewer. Setting `repository_attribute`
+adds a check on each repository, `isGranted(<attribute>, <repository name>)`,
+so a voter can grant each user their own repositories:
+
+```yaml
+git:
+    access_role: ROLE_USER
+    repository_attribute: GIT_VIEW
+```
+
+The repository index lists only the granted ones.
+
+## Service API
+
+`Git\Service\Git2Service` is public and autowirable:
+
+- `getCommitLog()`, `getCommit()`, `getTree()`, `getBlob()`, `getBranches()`, `getTags()`: the viewer's reads
+- `getTag($repo, $name)`: the commit a tag points at, plus the message and date of an annotated tag
+- `walkTree($repo, $ref, $path = '')`: every file of a tree, as a generator `path => [content, filemode]`, read from the object database. Good for building an archive of a release.
+
+An unknown ref or tag is a `NotFoundHttpException` (404).
+
+## Tests
+
+```bash
+vendor/bin/phpunit   # needs php-git2 and the git binary (fixtures are built with it)
+```
+
 ## Notes
 
 - The auto-clone/fetch happens in a **cache warmer** (`RepositoryWarmer`,

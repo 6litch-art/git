@@ -2,6 +2,7 @@
 
 namespace Git\Warmer;
 
+use Git\Repository\RepositoryRegistry;
 use Symfony\Component\HttpKernel\CacheWarmer\CacheWarmerInterface;
 
 /**
@@ -11,7 +12,12 @@ use Symfony\Component\HttpKernel\CacheWarmer\CacheWarmerInterface;
  */
 class RepositoryWarmer implements CacheWarmerInterface
 {
-    public function __construct(private readonly array $repositories) {}
+    private RepositoryRegistry $registry;
+
+    public function __construct(RepositoryRegistry|array $repositories)
+    {
+        $this->registry = \is_array($repositories) ? new RepositoryRegistry($repositories) : $repositories;
+    }
 
     public function isOptional(): bool
     {
@@ -20,24 +26,39 @@ class RepositoryWarmer implements CacheWarmerInterface
 
     public function warmUp(string $cacheDir, ?string $buildDir = null): array
     {
-        foreach ($this->repositories as $name => $config) {
-            if (empty($config['url'])) {
-                continue;
-            }
+        // A provider may read a database that is not there yet (an image
+        // being built): the configured repositories still get synced.
+        try {
+            $repositories = $this->registry->all();
+        } catch (\Throwable $e) {
+            $this->writeLine("  \033[1;33m! Repository providers unavailable\033[0m ({$e->getMessage()})");
+            $repositories = [];
+        }
 
-            $path = $config['path'];
-
-            if (is_dir($path)) {
-                $this->fetchUpdates($name, $config);
-            } else {
-                $this->cloneRepository($name, $config);
-            }
+        foreach ($repositories as $name => $config) {
+            $this->sync($name, $config);
         }
 
         return [];
     }
 
-    private function cloneRepository(string $name, array $config): void
+    /**
+     * Clone a repository that has a `url` but no `path` yet, fetch one that
+     * has both. Returns false when there is nothing to do (no url) or git
+     * failed. Also what `git:sync` runs.
+     */
+    public function sync(string $name, array $config): bool
+    {
+        if (empty($config['url'])) {
+            return false;
+        }
+
+        return is_dir($config['path'])
+            ? $this->fetchUpdates($name, $config)
+            : $this->cloneRepository($name, $config);
+    }
+
+    private function cloneRepository(string $name, array $config): bool
     {
         $url   = $config['url'];
         $path  = $config['path'];
@@ -48,11 +69,15 @@ class RepositoryWarmer implements CacheWarmerInterface
         $this->writeLine("    url  : {$url}");
         $this->writeLine("    into : {$path}");
 
+        if (!is_dir(\dirname($path))) {
+            @mkdir(\dirname($path), 0775, true);
+        }
+
         $cmd = ['git', 'clone', '--mirror', '--progress', $url, $path];
-        $this->runWithProgress($cmd);
+        return $this->runWithProgress($cmd);
     }
 
-    private function fetchUpdates(string $name, array $config): void
+    private function fetchUpdates(string $name, array $config): bool
     {
         $path  = $config['path'];
         $label = $config['label'] ?? $name;
@@ -62,10 +87,10 @@ class RepositoryWarmer implements CacheWarmerInterface
 
         // --mirror repos are bare; use GIT_DIR env var + fetch --all --prune
         $cmd = ['git', 'fetch', '--all', '--prune', '--progress'];
-        $this->runWithProgress($cmd, ['GIT_DIR' => $path]);
+        return $this->runWithProgress($cmd, ['GIT_DIR' => $path]);
     }
 
-    private function runWithProgress(array $cmd, array $env = []): void
+    private function runWithProgress(array $cmd, array $env = []): bool
     {
         $spec = [
             0 => ['pipe', 'r'],
@@ -77,7 +102,7 @@ class RepositoryWarmer implements CacheWarmerInterface
         $proc = proc_open($cmd, $spec, $pipes, null, $envVars);
         if (!is_resource($proc)) {
             $this->writeLine("  \033[1;31m✗ Failed to start process\033[0m");
-            return;
+            return false;
         }
 
         fclose($pipes[0]);
@@ -129,6 +154,8 @@ class RepositoryWarmer implements CacheWarmerInterface
         } else {
             $this->writeLine("    \033[1;31m✗ exited with code {$exit}\033[0m");
         }
+
+        return $exit === 0;
     }
 
     private function writeLine(string $line): void

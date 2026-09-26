@@ -4,30 +4,37 @@ namespace Git\Service;
 
 use Git\Model\CommitInfo;
 use Git\Model\TreeEntry;
+use Git\Repository\RepositoryRegistry;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class Git2Service
 {
-    /** @var array<string, array{path: string, label: string|null, description: string|null, default_branch: string}> */
-    private array $repositories;
+    private RepositoryRegistry $registry;
 
-    public function __construct(array $repositories)
+    /**
+     * @param RepositoryRegistry|array<string, array{path: string, label: string|null, description: string|null, default_branch: string}> $repositories
+     *        the registry (configured + provided repositories), or a plain
+     *        list of configured ones
+     */
+    public function __construct(RepositoryRegistry|array $repositories)
     {
-        $this->repositories = $repositories;
+        $this->registry = \is_array($repositories) ? new RepositoryRegistry($repositories) : $repositories;
     }
 
     /** @return array<string, array> */
     public function listRepositories(): array
     {
-        return $this->repositories;
+        return $this->registry->all();
+    }
+
+    public function hasRepository(string $name): bool
+    {
+        return $this->registry->has($name);
     }
 
     public function getRepositoryConfig(string $name): array
     {
-        if (!isset($this->repositories[$name])) {
-            throw new NotFoundHttpException("Repository '$name' not found.");
-        }
-        return $this->repositories[$name];
+        return $this->registry->get($name) ?? throw new NotFoundHttpException("Repository '$name' not found.");
     }
 
     private function openRepo(string $name)
@@ -48,7 +55,12 @@ class Git2Service
         $repo = $this->openRepo($repoName);
 
         // Try as arbitrary revspec — handles branch names, tag names, short SHAs, HEAD, etc.
-        $obj = @git_revparse_single($repo, $ref);
+        // php-git2 throws on an unknown revspec: that is a 404, not a 500.
+        try {
+            $obj = git_revparse_single($repo, $ref);
+        } catch (\Throwable) {
+            $obj = null;
+        }
         if ($obj) {
             // Dereference annotated tags to the target commit
             if (git_object_type($obj) === GIT_OBJ_TAG) {
@@ -291,6 +303,96 @@ class Git2Service
 
         krsort($tags);
         return $tags;
+    }
+
+    /**
+     * One tag, with what a release needs from it: the commit it points at,
+     * and - for an annotated tag - its message and date. A lightweight tag
+     * has neither; its commit's date stands in.
+     *
+     * @return array{name: string, sha: string, message: ?string, date: \DateTimeImmutable}
+     */
+    public function getTag(string $repoName, string $name): array
+    {
+        $repo = $this->openRepo($repoName);
+        try {
+            // php-git2 throws on an unknown revspec rather than returning false.
+            $obj = git_revparse_single($repo, 'refs/tags/' . $name);
+        } catch (\Throwable) {
+            $obj = null;
+        }
+        if (!$obj) {
+            throw new NotFoundHttpException("Tag '$name' not found in repository '$repoName'.");
+        }
+
+        $message = null;
+        $date    = null;
+        if (git_object_type($obj) === GIT_OBJ_TAG) {
+            $tag     = git_tag_lookup($repo, git_object_id($obj));
+            $message = rtrim((string) git_tag_message($tag)) ?: null;
+            $tagger  = @git_tag_tagger($tag);
+            if ($tagger) {
+                $tagger = git2_signature_convert($tagger);
+                $date   = new \DateTimeImmutable('@' . $tagger['when.time']);
+            }
+            $obj = git_object_peel($obj, GIT_OBJ_COMMIT);
+        }
+
+        $sha = git_object_id($obj);
+
+        return [
+            'name'    => $name,
+            'sha'     => $sha,
+            'message' => $message,
+            'date'    => $date ?? $this->commitInfoFromSha($repo, $sha)->committerDate,
+        ];
+    }
+
+    /**
+     * Every file of the tree at $ref, depth first: path => [content, filemode].
+     * What an archive of a release is built from - read from the object
+     * database like everything else here, nothing checked out on disk.
+     * Submodules are skipped (their content lives in another repository).
+     *
+     * @return \Generator<string, array{content: string, filemode: int}>
+     */
+    public function walkTree(string $repoName, string $ref, string $path = ''): \Generator
+    {
+        $repo = $this->openRepo($repoName);
+        $sha  = $this->resolveRef($repoName, $ref);
+        $tree = git_commit_tree(git_commit_lookup($repo, $sha));
+
+        if ($path !== '') {
+            $entry = @git_tree_entry_bypath($tree, trim($path, '/'));
+            if (!$entry) {
+                throw new NotFoundHttpException("Path '$path' not found at ref '$ref'.");
+            }
+            $tree = git_tree_lookup($repo, git_tree_entry_id($entry));
+        }
+
+        yield from $this->walk($repo, $tree, $path === '' ? '' : trim($path, '/') . '/');
+    }
+
+    private function walk($repo, $tree, string $prefix): \Generator
+    {
+        $count = git_tree_entrycount($tree);
+        for ($i = 0; $i < $count; $i++) {
+            $entry = git_tree_entry_byindex($tree, $i);
+            $name  = git_tree_entry_name($entry);
+            $oid   = git_tree_entry_id($entry);
+
+            switch (git_tree_entry_type($entry)) {
+                case GIT_OBJ_TREE:
+                    yield from $this->walk($repo, git_tree_lookup($repo, $oid), $prefix . $name . '/');
+                    break;
+                case GIT_OBJ_BLOB:
+                    yield $prefix . $name => [
+                        'content'  => (string) git_blob_rawcontent(git_blob_lookup($repo, $oid)),
+                        'filemode' => (int) git_tree_entry_filemode($entry),
+                    ];
+                    break;
+            }
+        }
     }
 
     /**

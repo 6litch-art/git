@@ -19,26 +19,39 @@ class RepositoryController extends AbstractController
     public function __construct(
         private readonly Git2Service $git,
         private readonly string $accessRole = 'ROLE_ADMIN',
+        private readonly ?string $repositoryAttribute = null,
     ) {}
 
-    private function checkAccess(): void
+    /**
+     * The role first; then, when `git.repository_attribute` is set, the
+     * repository itself - isGranted(<attribute>, <repository name>), so an
+     * application's voter can open each client their own repositories only.
+     */
+    private function checkAccess(?string $repo = null): void
     {
         $this->denyAccessUnlessGranted($this->accessRole);
+        if ($repo !== null && $this->repositoryAttribute !== null) {
+            $this->denyAccessUnlessGranted($this->repositoryAttribute, $repo);
+        }
     }
 
     #[Route('', name: 'git_repositories')]
     public function repositories(): Response
     {
         $this->checkAccess();
+        $repos = $this->git->listRepositories();
+        if ($this->repositoryAttribute !== null) {
+            $repos = array_filter($repos, fn (string $name) => $this->isGranted($this->repositoryAttribute, $name), ARRAY_FILTER_USE_KEY);
+        }
         return $this->render('@Git/repositories.html.twig', [
-            'repos' => $this->git->listRepositories(),
+            'repos' => $repos,
         ]);
     }
 
     #[Route('/{repo}', name: 'git_repo_default', requirements: ['repo' => '[^/]+'])]
     public function repoDefault(string $repo): Response
     {
-        $this->checkAccess();
+        $this->checkAccess($repo);
         $config = $this->git->getRepositoryConfig($repo);
         return $this->redirectToRoute('git_tree', [
             'repo' => $repo,
@@ -50,7 +63,7 @@ class RepositoryController extends AbstractController
     #[Route('/{repo}/tree/{ref}/{path}', name: 'git_tree', requirements: ['repo' => '[^/]+', 'ref' => '[^/]+', 'path' => '.*'], defaults: ['path' => ''])]
     public function tree(string $repo, string $ref, string $path): Response
     {
-        $this->checkAccess();
+        $this->checkAccess($repo);
         $entries = $this->git->getTree($repo, $ref, $path);
         $config  = $this->git->getRepositoryConfig($repo);
         return $this->render('@Git/tree.html.twig', [
@@ -66,7 +79,7 @@ class RepositoryController extends AbstractController
     #[Route('/{repo}/blob/{ref}/{path}', name: 'git_blob', requirements: ['repo' => '[^/]+', 'ref' => '[^/]+', 'path' => '.+'])]
     public function blob(string $repo, string $ref, string $path): Response
     {
-        $this->checkAccess();
+        $this->checkAccess($repo);
         $blob   = $this->git->getBlob($repo, $ref, $path);
         $config = $this->git->getRepositoryConfig($repo);
         return $this->render('@Git/blob.html.twig', [
@@ -83,7 +96,7 @@ class RepositoryController extends AbstractController
     #[Route('/{repo}/log/{ref}', name: 'git_log', requirements: ['repo' => '[^/]+', 'ref' => '[^/]+'])]
     public function log(Request $request, string $repo, string $ref): Response
     {
-        $this->checkAccess();
+        $this->checkAccess($repo);
         $page    = max(1, (int) $request->query->get('page', 1));
         $limit   = 30;
         $commits = $this->git->getCommitLog($repo, $ref, $limit, ($page - 1) * $limit);
@@ -101,7 +114,7 @@ class RepositoryController extends AbstractController
     #[Route('/{repo}/commit/{sha}', name: 'git_commit', requirements: ['repo' => '[^/]+', 'sha' => '[0-9a-f]{7,40}'])]
     public function commit(string $repo, string $sha): Response
     {
-        $this->checkAccess();
+        $this->checkAccess($repo);
         $commit = $this->git->getCommit($repo, $sha);
         $config = $this->git->getRepositoryConfig($repo);
         return $this->render('@Git/commit.html.twig', [
@@ -114,7 +127,7 @@ class RepositoryController extends AbstractController
     #[Route('/{repo}/branches', name: 'git_branches', requirements: ['repo' => '[^/]+'])]
     public function branches(string $repo): Response
     {
-        $this->checkAccess();
+        $this->checkAccess($repo);
         $branches = $this->git->getBranches($repo);
         $config   = $this->git->getRepositoryConfig($repo);
         return $this->render('@Git/refs.html.twig', [
@@ -129,7 +142,7 @@ class RepositoryController extends AbstractController
     #[Route('/{repo}/tags', name: 'git_tags', requirements: ['repo' => '[^/]+'])]
     public function tags(string $repo): Response
     {
-        $this->checkAccess();
+        $this->checkAccess($repo);
         $tags   = $this->git->getTags($repo);
         $config = $this->git->getRepositoryConfig($repo);
         return $this->render('@Git/refs.html.twig', [
